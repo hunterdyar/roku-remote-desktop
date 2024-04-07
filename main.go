@@ -6,6 +6,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 	"github.com/koron/go-ssdp"
@@ -18,11 +19,15 @@ var (
 	allRokuNames []string
 	scanWin      *fyne.Container
 	rokuSelect   *widget.Select
+	inputText    binding.String
+	lastText     string
 )
 
 func main() {
 	a = app.NewWithID("DesktopRokuRemote")
 	w := a.NewWindow("Roku Remote")
+	inputText = binding.NewString()
+
 	//attempt to load.
 	loadScan()
 	sel := a.Preferences().Int("SelectedRoku")
@@ -160,13 +165,79 @@ func remoteWindow() *fyne.Container {
 		fwd,
 	)
 
+	inputEntry := widget.NewEntryWithData(inputText)
+	inputEntry.OnChanged = func(s string) {
+		UpdateTextToRoku(s)
+	}
+
+	backspaceButton := widget.NewButton("BS", func() {
+		SendCommand(roku, "keypress/Backspace")
+	})
+
+	inputrow := container.New(layout.NewHBoxLayout(), backspaceButton, inputEntry)
+
 	box := container.New(layout.NewVBoxLayout(),
 		toprow,
 		uprow,
 		midrow,
 		downrow,
 		backrow,
-		playrow)
+		playrow,
+		inputrow,
+	)
 
 	return box
+}
+
+func SendTextData(s string) {
+	for i, _ := range s {
+		SendCommand(roku, "keypress/Lit_"+string(s[i]))
+	}
+}
+func UpdateTextToRoku(newText string) {
+	if newText == lastText {
+		return
+	}
+	if len(newText) > len(lastText) {
+		for i, c := range newText {
+			if i < len(lastText) {
+				if newText[i] == lastText[i] {
+					continue
+				}
+				//we have a mismatch between last and new. Erase existing from end to i point.
+			}
+			//we need to add newtext here
+			//todo: get the substring from here to new.
+			SendTextData(string(c))
+
+		}
+		lastText = newText
+		return
+	} else if len(lastText) > len(newText) {
+		delCount := len(lastText) - len(newText)
+		for _ = range delCount {
+			SendCommand(roku, "keypress/Backspace")
+		}
+		//now make sure we are synced up.
+		matching := true
+		for i, _ := range newText {
+			if i < len(lastText) {
+				if newText[i] != lastText[i] {
+					matching = false
+					break
+				}
+			}
+			if matching {
+				lastText = newText
+				return
+			} //else: continue below. delete and retype everything.
+		}
+	}
+	//and the final give up and go: erase everything and retype
+	for _ = range len(lastText) {
+		SendCommand(roku, "keypress/Backspace")
+	}
+	SendTextData(newText)
+
+	lastText = newText
 }

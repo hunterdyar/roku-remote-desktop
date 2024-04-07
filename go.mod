@@ -4,6 +4,7 @@ go 1.22
 
 require (
 	fyne.io/fyne/v2 v2.4.4
+	github.com/eiannone/keyboard v0.0.0-20220611211555-0d226195f203
 	github.com/koron/go-ssdp v0.0.4
 )
 

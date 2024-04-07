@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"github.com/koron/go-ssdp"
+	"io"
 	"log"
 	"net/http"
 )
@@ -27,7 +29,12 @@ func SendCommand(roku ssdp.Service, command string) {
 		return
 	}
 	r, err := http.Post(roku.Location+"/"+command, "text/plain", nil)
-	defer r.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Println(err)
+		}
+	}(r.Body)
 	if err != nil {
 		log.Fatal(err)
 	}
